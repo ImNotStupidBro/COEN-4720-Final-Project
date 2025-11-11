@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,7 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DEFAULT_FONT FONT_6X8
+#define BUFF_SIZE 1024
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,7 +47,19 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+char tx_buff_to_HostPC[BUFF_SIZE];
+char rx_buff_from_HostPC[BUFF_SIZE];
 
+int wifi_receive_n = 0;
+
+char rx_buff_from_WiFi_module[BUFF_SIZE];
+char tx_buff_to_WiFi_module[BUFF_SIZE];
+
+char http_response_buff[BUFF_SIZE];
+char *p_http_response;
+
+char AT_cmd_buff[256];
+char *p_AT_cmd;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,7 +69,15 @@ static void MX_USART2_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void readFromHostPC( uint32_t timeout);
+// things related to WiFi module;
+void wifi_esp8266_init(void);
+void readFromWiFi( uint32_t timeout, int debug);
+void sendCommandToWiFi(char *command, uint32_t timeout, int debug);
+void WiFi_module_rename(void);
+void concatenate_strings( char *original, char *add);
+void clear( char *buff, int len);
+void sendHTTPResponse( int connectionId, char *content, int debug);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -72,7 +93,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  char *p_ipd = 0;
+  char *p_effect = 0;
+  char c; // used to receive characters from wifi module;
+  int connectionId = 0; // used to build HTTP response only;
+  int debug = 1;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -97,19 +122,112 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  LCD_init();
+  UG_FillScreen(C_BLUE);
+  LCD_PutStr(32, 32, "WiFi ESP8266 Module", DEFAULT_FONT, C_YELLOW, C_BLACK);
+  LCD_PutStr(32, 48, "Initialization...", DEFAULT_FONT, C_YELLOW, C_BLACK);
+  // WiFi ESP8266 module initialization;
+  // NOTE: once you run this program on the Nucleo board for the first time, then,
+  // you should be ok with commenting out this wifi initialization, so that you do not
+  // wait for resetting and all others of the wifi module every time when you rerun the
+  // program...
+  wifi_esp8266_init();
 
+  // if all went ok so far, the wifi module should be ready for communication at this time...
+  // print on the LCD display that wifi module is ready;
+  LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
+    // in each iteration, we just check on whether the wifi module is receiving anything;
+      // and if so, then, we parse what was received in the WiFi receive buffer;
+      readFromWiFi(1000, 0);
+      wifi_receive_n = strlen( rx_buff_from_WiFi_module);
+      if ( wifi_receive_n > 0) {
+
+        c = rx_buff_from_WiFi_module[0];
+        if ( c != 0) {
+
+          connectionId = c - 48; // c is received as an ASCII code; subtract 48 (ASCII code of '0') to get the actual number;
+          if ( debug == 1) {
+            // print to host PC;
+            sprintf(tx_buff_to_HostPC, "connectionID: %4d \r\n", connectionId);
+            HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+          }
+
+          // find if the substring "+IPD" occurs in the receive buffer;
+          p_ipd = strstr( (const char *)rx_buff_from_WiFi_module, "+IPD");
+          if ( p_ipd != 0) {
+
+            // find if the substring "effect=" occurs in the receive buffer;
+            p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "effect=");
+            if ( p_effect != 0) {
+              // if "effect=" was received, let user know first on LCD;
+              LCD_PutStr(32, 80, "Received control via WiFi", DEFAULT_FONT, C_YELLOW, C_BLACK);
+              // print also on serial terminal of host PC;
+              sprintf(tx_buff_to_HostPC, "%s", "Received control via WiFi\r\n");
+              HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+              // then, add 7 to the pointer such that we point to the number after the substring
+              // "effect=", which is what we are after as a received control number;
+              p_effect += 7;
+              if (*p_effect == '1') {
+                // print on LCD display;
+                LCD_PutStr(32, 96, "Control received: 1  ", DEFAULT_FONT, C_YELLOW, C_BLACK);
+                // print also on serial terminal of host PC;
+                sprintf(tx_buff_to_HostPC, "%s", "Control received: 1\r\n");
+                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                // turn ON the LED of the board;
+                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+                // send back response;
+                sendHTTPResponse(connectionId, "LED on Nucleo ON", 1); // debug=1 true;
+              } else if (*p_effect == '2') {
+                // print on LCD display;
+                LCD_PutStr(32, 96, "Control received: 2  ", DEFAULT_FONT, C_YELLOW, C_BLACK);
+                // print also on serial terminal of host PC;
+                sprintf(tx_buff_to_HostPC, "%s", "Control received: 2\r\n");
+                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                // turn OFF the LED of the board;
+                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+                // send back response;
+                sendHTTPResponse(connectionId, "LED on Nucleo OFF", 1); // debug=1 true;
+              } else if (*p_effect == '3') {
+                sprintf(tx_buff_to_HostPC, "%s", "Control received: 2\r\n");
+                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                //Change the background color of the LCD to a random color in the colorArray array.
+
+                sendHTTPResponse(connectionId, "LCD Background color changed.", 1); // debug=1 true;
+              } else { // received nothing after "effect=" or a wrong command; error;
+                // print on LCD display;
+                LCD_PutStr(32, 96, "Received invalid ctrl", DEFAULT_FONT, C_YELLOW, C_BLACK);
+                // print also on serial terminal of host PC;
+                sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                // send back response;
+                sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
+              }
+            } else { // if ( p_effect != 0)
+              // print on LCD display;
+              LCD_PutStr(32, 96, "Received invalid ctrl", DEFAULT_FONT, C_YELLOW, C_BLACK);
+              // print also on serial terminal of host PC;
+              sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+              HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+              // send back response;
+              sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
+            } // if ( p_effect != 0)
+
+          } // if ( p_ipd != 0)
+        } // if ( c != 0)
+      } // if ( wifi_receive_n > 0)
+
   }
+
   /* USER CODE END 3 */
 }
+  /* USER CODE END WHILE */
 
 /**
   * @brief System Clock Configuration
@@ -328,7 +446,174 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+///////////////////////////////////////////////////////////////////////////////
+//
+// comm. with host PC via UART2 related functions
+//
+///////////////////////////////////////////////////////////////////////////////
 
+void readFromHostPC( uint32_t timeout)
+{
+  // reads from host PC;
+  int i = 0;
+
+  // (1) clear receive buffer first;
+  for (i = 0; i < BUFF_SIZE; i++) {
+    rx_buff_from_HostPC[i] = 0;
+  }
+
+  // (2) check if anything was sent from host PC;
+  // place received message rx_buff_from_HostPC;
+  HAL_UART_Receive(&huart2, (uint8_t *)rx_buff_from_HostPC, BUFF_SIZE, timeout);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// WiFi module related functions
+//
+///////////////////////////////////////////////////////////////////////////////
+
+void concatenate_strings( char *original, char *add)
+{
+  // custom concatenation, without adding the '\0' at the end;
+  while (*original != 0) {
+    original++;
+  }
+  while (*add != 0) {
+    *original = *add;
+    add++;
+    original++;
+  }
+  //*original = '\0';
+}
+
+void clear( char *buff, int len)
+{
+  // generic function to clear array "buff" of characters whose
+  // length "len" is already known;
+  while ( len > 0) {
+    *buff = 0; buff++; len--;
+  }
+}
+
+void readFromWiFi( uint32_t timeout, int debug)
+{
+  // reads from the WiFi module if it has received anything;
+  int i = 0;
+
+  // (1) clear receive buffer first;
+  for (i = 0; i < BUFF_SIZE; i++) {
+    rx_buff_from_WiFi_module[i] = 0;
+  }
+
+  // (2) check if anything was sent from WiFi module;
+  // place received message into rx_buff_from_WiFi_module;
+  HAL_UART_Receive(&huart1, (uint8_t *)rx_buff_from_WiFi_module, BUFF_SIZE, timeout);
+
+  // (3) if debug is true, we also print to host PC;
+  if (debug) {
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n<-------- START received data from WiFi -------->\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    strcpy(tx_buff_to_HostPC, rx_buff_from_WiFi_module);
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n>-------- END received data from WiFi --------<\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+  }
+}
+
+void sendCommandToWiFi(char *command, uint32_t timeout, int debug)
+{
+  int i = 0;
+  // (1) clear receive buffer first;
+  for (i = 0; i < BUFF_SIZE; i++) {
+    rx_buff_from_WiFi_module[i] = 0;
+  }
+
+  // (2) send command to WiFi module;
+  HAL_UART_Transmit(&huart1, (uint8_t *)command, strlen(command), timeout);
+
+  // (3) check if WiFi module replied with anything; place received message
+  // into rx_buff_from_WiFi_module;
+  HAL_UART_Receive(&huart1, (uint8_t *)rx_buff_from_WiFi_module, BUFF_SIZE, timeout);
+
+  // (4) if debug is true, we also print to host PC;
+  if (debug) {
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n<-------- START response to sendCommandToWiFi() -------->\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    strcpy(tx_buff_to_HostPC, rx_buff_from_WiFi_module);
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n>-------- END response to sendCommandToWiFi() --------<\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+  }
+}
+
+void wifi_esp8266_init(void)
+{
+  // this function does some initializations; should be called only once;
+  sendCommandToWiFi("AT\r\n", 2000, 1); // timeout of 2000 ms should be enough; debug set to true;
+  HAL_Delay(1000);
+  sendCommandToWiFi("AT+RST\r\n", 2000, 1); // reset wifi module
+  HAL_Delay(1000);
+  sendCommandToWiFi("AT+CWMODE=2\r\n", 2000, 1); // configure as access point
+  HAL_Delay(1000);
+  sendCommandToWiFi("AT+CIFSR\r\n", 2000, 1); // get ip address
+  HAL_Delay(1000);
+  sendCommandToWiFi("AT+CIPMUX=1\r\n", 2000, 1); // configure for multiple connections
+  HAL_Delay(1000);
+  sendCommandToWiFi("AT+CIPSERVER=1,80\r\n", 2000, 1); // turn on server on port 80
+  HAL_Delay(1000);
+}
+
+void sendHTTPResponse( int connectionId, char *content, int debug)
+{
+  // function that sends HTTP 200, HTML UTF-8 response back to the Android App via the WiFi module;
+  // the content argument can be: "Control received: 1" or "Control received: 2" or
+  // "Received invalid ctrl" or "Received no ctrl"
+  char len[4]; // a sketch small array; used for passing numbers during concatenations;
+
+  // build HTTP response as HTTP Header + content
+  p_http_response = http_response_buff; // access elements of http_response_buff via pointer during concatenations;
+  clear( http_response_buff, BUFF_SIZE);
+  clear( len, 4);
+  sprintf( len, "%d", strlen(content));
+  concatenate_strings( p_http_response, "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n");
+  concatenate_strings( p_http_response, "Content-Length: ");
+  concatenate_strings( p_http_response, len);
+  concatenate_strings( p_http_response, "\r\n");
+  concatenate_strings( p_http_response, "Connection: close\r\n\r\n");
+  concatenate_strings( p_http_response, content);
+
+  // build AT command;
+  p_AT_cmd = AT_cmd_buff; // access elements of AT_cmd_buff via pointer during concatenations;
+  clear( AT_cmd_buff, 256);
+  clear( len, 4);
+  sprintf( len, "%d", connectionId );
+  concatenate_strings( p_AT_cmd, "AT+CIPSEND="); // "Sends Data" AT command
+  concatenate_strings( p_AT_cmd, len);
+  concatenate_strings( p_AT_cmd, ",");
+  clear( len, 4);
+  sprintf( len, "%d", strlen(http_response_buff));
+  concatenate_strings( p_AT_cmd, len);
+  concatenate_strings( p_AT_cmd, "\r\n");
+
+  // send AT command and HTTP response to wifi module;
+  sendCommandToWiFi( AT_cmd_buff, 2000, 1);
+  sendCommandToWiFi( http_response_buff, 2000, 1);
+
+  // if debug is true, we also print to host PC;
+  if (debug) {
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n================== Sent AT Cmd =================\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    strcpy(tx_buff_to_HostPC, AT_cmd_buff);
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n=============== Sent HTTP response =============\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    strcpy(tx_buff_to_HostPC, http_response_buff);
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+    sprintf(tx_buff_to_HostPC, "%s", "\r\n================================================\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+  }
+}
 /* USER CODE END 4 */
 
 /**

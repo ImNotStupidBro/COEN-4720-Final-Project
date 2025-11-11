@@ -31,7 +31,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "lcd.h"
+#include "ugui.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
