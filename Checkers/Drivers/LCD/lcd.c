@@ -381,7 +381,7 @@ void LCD_FillPixels(uint32_t pixels, uint16_t color)
  * @param xi&yi -> coordinates of window
  * @return none
  */
-void(*LCD_FillArea(int16_t x0, int16_t y0, int16_t x1, int16_t y1))(uint16_t,uint16_t)
+void(*LCD_FillArea(int16_t x0, int16_t y0, int16_t x1, int16_t y1))(uint32_t,uint16_t)
 {
   if(x0==-1){
 #ifdef USE_DMA
@@ -989,4 +989,69 @@ static void window_1_callback(UG_MESSAGE *msg)
         }
     }
 */
+}
+
+void LCD_DrawCheckerBoard(void)
+{
+  //Draws a black and white tiled checker board.
+  unsigned char k = 0;
+  for(int i = 0; i < 8;){
+    for(int j = 0; j < 8;){
+      if(k==0){
+        UG_FillFrame((j*30), (i*30), (j*30) + 30, (i*30) + 30, C_WHITE);
+        k=1;
+      } else {
+        UG_FillFrame((j*30), (i*30), (j*30) + 30, (i*30) + 30, C_BLACK);
+        k=0;
+      }
+      j++;
+    }
+    if(k==0){
+      k = 1;
+    } else {
+      k = 0;
+    }
+    i++;
+  }
+}
+
+void LCD_DrawCheckerPieces(void)
+{
+  //Draws the pieces on the board in red and blue.
+  int i, j;
+  unsigned char k = 1;
+  for(i = 0; i < 3;){
+    for(j = 0; j < 4;){
+      if(k==0){
+        UG_FillCircle(15 + (j * 60), 15 + (i * 30), 12, C_RED);
+      } else {
+        UG_FillCircle(45 + (j * 60), 15 + (i * 30), 12, C_RED);
+      }
+      j++;
+    }
+    if(k==0){
+      k = 1;
+    } else {
+      k = 0;
+    }
+    i++;
+  }
+
+  k = 0;
+  for(i = 5; i < 8;){
+    for(j = 0; j < 4;){
+      if(k==0){
+        UG_FillCircle(15 + (j * 60), 15 + (i * 30), 12, C_BLUE);
+      } else {
+        UG_FillCircle(45 + (j * 60), 15 + (i * 30), 12, C_BLUE);
+      }
+      j++;
+    }
+    if(k==0){
+      k = 1;
+    } else {
+      k = 0;
+    }
+    i++;
+  }
 }

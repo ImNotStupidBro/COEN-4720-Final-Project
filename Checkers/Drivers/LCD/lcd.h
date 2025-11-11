@@ -183,4 +183,8 @@ void LCD_init(void);
 /* Simple test function. */
 void LCD_Test(void);
 
+/* Project functions */
+void LCD_DrawCheckerBoard(void);
+void LCD_DrawCheckerPieces(void);
+
 #endif // __ST7789_H__
