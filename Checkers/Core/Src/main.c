@@ -136,6 +136,9 @@ int main(void)
   // if all went ok so far, the wifi module should be ready for communication at this time...
   // print on the LCD display that wifi module is ready;
   LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
+  UG_FillScreen(C_BLACK);
+  LCD_DrawCheckerBoard();
+  LCD_DrawCheckerPieces();
   /* USER CODE END 2 */
 
   /* Infinite loop */
