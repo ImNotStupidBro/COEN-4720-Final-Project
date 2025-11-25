@@ -21,12 +21,45 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+enum spaceState {
+  OCCUPIED,
+  EMPTY
+};
 
+enum pieceState {
+  IN_PLAY,
+  CAPTURED
+};
+
+enum playerState {
+  ACTING,
+  WAITING
+};
+
+struct BOARD_SPACE{
+  char column_letter;
+  char row_number;
+  enum spaceState SS;
+};
+
+struct CHECKER_PIECE{
+  struct BOARD_SPACE curr_space;
+  struct BOARD_SPACE prev_space;
+  bool isKinged;
+  enum pieceState PS;
+};
+
+struct PLAYER{
+  struct CHECKER_PIECE player_pieces[12];
+  enum playerState PLS;
+};
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -47,19 +80,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-char tx_buff_to_HostPC[BUFF_SIZE];
-char rx_buff_from_HostPC[BUFF_SIZE];
 
-int wifi_receive_n = 0;
-
-char rx_buff_from_WiFi_module[BUFF_SIZE];
-char tx_buff_to_WiFi_module[BUFF_SIZE];
-
-char http_response_buff[BUFF_SIZE];
-char *p_http_response;
-
-char AT_cmd_buff[256];
-char *p_AT_cmd;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,7 +103,21 @@ void sendHTTPResponse( int connectionId, char *content, int debug);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+char tx_buff_to_HostPC[BUFF_SIZE];
+char rx_buff_from_HostPC[BUFF_SIZE];
 
+int wifi_receive_n = 0;
+
+char rx_buff_from_WiFi_module[BUFF_SIZE];
+char tx_buff_to_WiFi_module[BUFF_SIZE];
+
+char http_response_buff[BUFF_SIZE];
+char *p_http_response;
+
+char AT_cmd_buff[256];
+char *p_AT_cmd;
+
+struct BOARD_SPACE game_board[8][8];
 /* USER CODE END 0 */
 
 /**
@@ -138,7 +173,7 @@ int main(void)
   LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   UG_FillScreen(C_BLACK);
   LCD_DrawCheckerBoard();
-  LCD_DrawCheckerPieces();
+  LCD_DrawInitializedCheckerPieces();
   /* USER CODE END 2 */
 
   /* Infinite loop */

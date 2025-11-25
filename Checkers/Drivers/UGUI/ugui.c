@@ -2350,3 +2350,11 @@ static UG_RESULT _UG_WindowClear( UG_WINDOW* wnd )
    }
    return UG_RESULT_FAIL;
 }
+
+void UG_DrawKingEmblem( UG_S16 x, UG_S16 y, UG_COLOR c)
+{
+  UG_FillFrame(x-6, y, x+4, y+4, c);
+  UG_FillTriangle(x-6, y-4, x-6, y, x-3, y, c);
+  UG_FillTriangle(x-3, y, x, y-4, x+3, y, c);
+  UG_FillTriangle(x+6, y-4, x+6, y, x+3, y, c);
+}
