@@ -58,6 +58,7 @@ struct CHECKER_PIECE{
 
 struct PLAYER{
   struct CHECKER_PIECE player_pieces[12];
+  int color;
   enum playerState PLS;
 };
 /* USER CODE END PTD */
@@ -99,6 +100,9 @@ void WiFi_module_rename(void);
 void concatenate_strings( char *original, char *add);
 void clear( char *buff, int len);
 void sendHTTPResponse( int connectionId, char *content, int debug);
+// Project-specific functions
+uint8_t ColumnLetterToIntTranslation(char col_let);
+void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYER p2);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,6 +122,8 @@ char AT_cmd_buff[256];
 char *p_AT_cmd;
 
 struct BOARD_SPACE game_board[8][8];
+struct PLAYER P1;
+struct PLAYER P2;
 /* USER CODE END 0 */
 
 /**
@@ -128,6 +134,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  P1.color = C_RED;
+  P2.color = C_BLUE;
+
   char *p_ipd = 0;
   char *p_effect = 0;
   char c; // used to receive characters from wifi module;
@@ -172,8 +181,7 @@ int main(void)
   // print on the LCD display that wifi module is ready;
   LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   UG_FillScreen(C_BLACK);
-  LCD_DrawCheckerBoard();
-  LCD_DrawInitializedCheckerPieces();
+  InitializeBoard(game_board, P1, P2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -651,6 +659,104 @@ void sendHTTPResponse( int connectionId, char *content, int debug)
     sprintf(tx_buff_to_HostPC, "%s", "\r\n================================================\r\n");
     HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
   }
+}
+
+void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYER p2)
+{
+  //Draw the board on the LCD
+  LCD_DrawCheckerBoard();
+
+  //Initialize of each of the players' pieces' locations, states and colors.
+  unsigned int row, col, orientation, piece_idx;
+  piece_idx = 0;
+  orientation = 1;
+  for(row = 0; row < 3;){
+    for(col = 0; col < 4;)
+    {
+      if(orientation == 0){
+        p1.player_pieces[piece_idx].curr_space = gb[row][col*2];
+      } else {
+        p1.player_pieces[piece_idx].curr_space = gb[row][1+(col*2)];
+      }
+      p1.player_pieces[piece_idx].isKinged = false;
+      //Use temp variables to double check for correct assignment
+      char P1_curr_space_col = p1.player_pieces[piece_idx].curr_space.column_letter;
+      char P1_curr_space_row = p1.player_pieces[piece_idx].curr_space.row_number;
+      bool P1_king_state = p1.player_pieces[piece_idx].isKinged;
+      LCD_DrawCheckerPiece(piece_idx, P1_curr_space_col, P1_curr_space_row, P1_king_state, p1.color);
+
+      piece_idx++;
+      col++;
+    }
+    if(orientation==0){
+      orientation = 1;
+    } else {
+      orientation = 0;
+    }
+    row++;
+  }
+
+  piece_idx = 0;
+  orientation = 0;
+  for(row = 5; row < 8;){
+    for(col = 0; col < 4;)
+    {
+      if(orientation == 0){
+        p2.player_pieces[piece_idx].curr_space = gb[row][col*2];
+      } else {
+        p2.player_pieces[piece_idx].curr_space = gb[row][1+(col*2)];
+      }
+      p2.player_pieces[piece_idx].isKinged = false;
+      //Use temp variables to double check for correct assignment
+      char P2_curr_space_col = p2.player_pieces[piece_idx].curr_space.column_letter;
+      char P2_curr_space_row = p2.player_pieces[piece_idx].curr_space.row_number;
+      bool P2_king_state = p2.player_pieces[piece_idx].isKinged;
+
+      LCD_DrawCheckerPiece(piece_idx, P2_curr_space_col, P2_curr_space_row, P2_king_state, p2.color);
+      piece_idx++;
+      col++;
+    }
+    if(orientation==0){
+      orientation = 1;
+    } else {
+      orientation = 0;
+    }
+    row++;
+  }
+}
+
+uint8_t ColumnLetterToIntTranslation(char col_let){
+  int translated_int;
+  switch(col_let)
+  {
+    case 'a':
+      translated_int = 0;
+      break;
+    case 'b':
+      translated_int = 1;
+      break;
+    case 'c':
+      translated_int = 2;
+      break;
+    case 'd':
+      translated_int = 3;
+      break;
+    case 'e':
+      translated_int = 4;
+      break;
+    case 'f':
+      translated_int = 5;
+      break;
+    case 'g':
+      translated_int = 6;
+      break;
+    case 'h':
+      translated_int = 7;
+      break;
+    default:
+      translated_int = -1;
+  }
+  return translated_int;
 }
 /* USER CODE END 4 */
 
