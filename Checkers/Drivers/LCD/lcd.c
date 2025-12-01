@@ -1024,9 +1024,9 @@ void LCD_DrawCheckerPiece(uint8_t piece_num, uint8_t col_num, uint8_t row_num, b
   char pcnum_buff[4];
   sprintf(pcnum_buff, "%d", piece_num);
   if(piece_num > 9){
-    LCD_PutStr(row_num-4, col_num-4, pcnum_buff, DEFAULT_FONT, C_WHITE, color);
+    LCD_PutStr(15*row_num, 15*col_num, pcnum_buff, DEFAULT_FONT, C_WHITE, color);
   } else {
-    LCD_PutStr(row_num-2, col_num-2, pcnum_buff, DEFAULT_FONT, C_WHITE, color);
+    LCD_PutStr((15*row_num)-2, (15*col_num)-2, pcnum_buff, DEFAULT_FONT, C_WHITE, color);
   }
 }
 

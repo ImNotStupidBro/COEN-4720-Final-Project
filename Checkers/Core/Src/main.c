@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <retarget.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -134,6 +135,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  char debug_str_buff[30];
+
   P1.color = C_RED;
   P2.color = C_BLUE;
 
@@ -166,6 +169,7 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  RetargetInit(&huart2);
   LCD_init();
   UG_FillScreen(C_BLUE);
   LCD_PutStr(32, 32, "WiFi ESP8266 Module", DEFAULT_FONT, C_YELLOW, C_BLACK);
@@ -663,12 +667,14 @@ void sendHTTPResponse( int connectionId, char *content, int debug)
 
 void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYER p2)
 {
+  // STRING BUFFER FOR DEBUGGING
+  char debug_str_buff[30];
   //Draw the board on the LCD
   LCD_DrawCheckerBoard();
 
   //Initialize of each of the players' pieces' locations, states and colors.
   unsigned int row, col, orientation, piece_idx;
-  piece_idx = 0;
+  piece_idx = 1;
   orientation = 1;
   for(row = 0; row < 3;){
     for(col = 0; col < 4;)
@@ -696,7 +702,7 @@ void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYE
     row++;
   }
 
-  piece_idx = 0;
+  piece_idx = 1;
   orientation = 0;
   for(row = 5; row < 8;){
     for(col = 0; col < 4;)
