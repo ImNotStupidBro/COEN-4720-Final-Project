@@ -60,6 +60,7 @@ struct CHECKER_PIECE{
 struct PLAYER{
   struct CHECKER_PIECE player_pieces[12];
   int color;
+  int playerNum;
   enum playerState PLS;
 };
 /* USER CODE END PTD */
@@ -135,10 +136,19 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  char debug_str_buff[30];
-
+  //char debug_str_buff[30];
+  P1.playerNum = 1;
+  P2.playerNum = 2;
   P1.color = C_RED;
   P2.color = C_BLUE;
+
+  for(int row = 0; row < 8; row++){
+    for(int col = 0; col < 8; col++){
+      game_board[row][col].column_letter = col;
+      game_board[row][col].row_number = row;
+      game_board[row][col].SS = EMPTY;
+    }
+  }
 
   char *p_ipd = 0;
   char *p_effect = 0;
@@ -667,8 +677,6 @@ void sendHTTPResponse( int connectionId, char *content, int debug)
 
 void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYER p2)
 {
-  // STRING BUFFER FOR DEBUGGING
-  char debug_str_buff[30];
   //Draw the board on the LCD
   LCD_DrawCheckerBoard();
 
@@ -680,16 +688,22 @@ void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYE
     for(col = 0; col < 4;)
     {
       if(orientation == 0){
-        p1.player_pieces[piece_idx].curr_space = gb[row][col*2];
+        p1.player_pieces[piece_idx-1].curr_space = gb[row][col*2];
+        p1.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
+        gb[row][col*2].SS = OCCUPIED;
       } else {
-        p1.player_pieces[piece_idx].curr_space = gb[row][1+(col*2)];
+        p1.player_pieces[piece_idx-1].curr_space = gb[row][1+(col*2)];
+        p1.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
+        gb[row][1+(col*2)].SS = OCCUPIED;
       }
-      p1.player_pieces[piece_idx].isKinged = false;
+      p1.player_pieces[piece_idx-1].isKinged = false;
       //Use temp variables to double check for correct assignment
-      char P1_curr_space_col = p1.player_pieces[piece_idx].curr_space.column_letter;
-      char P1_curr_space_row = p1.player_pieces[piece_idx].curr_space.row_number;
-      bool P1_king_state = p1.player_pieces[piece_idx].isKinged;
-      LCD_DrawCheckerPiece(piece_idx, P1_curr_space_col, P1_curr_space_row, P1_king_state, p1.color);
+      char P1_curr_space_col = p1.player_pieces[piece_idx-1].curr_space.column_letter;
+      char P1_curr_space_row = p1.player_pieces[piece_idx-1].curr_space.row_number;
+      bool P1_king_state = p1.player_pieces[piece_idx-1].isKinged;
+      LCD_DrawCheckerPiece(piece_idx, P1_curr_space_row, P1_curr_space_col, P1_king_state, p1.color);
+      // DEBUG LINES
+      printf("Player %d, Piece %d, Row %d, Column %d \r\n", p1.playerNum, piece_idx, P1_curr_space_row, P1_curr_space_col);
 
       piece_idx++;
       col++;
@@ -708,17 +722,23 @@ void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYE
     for(col = 0; col < 4;)
     {
       if(orientation == 0){
-        p2.player_pieces[piece_idx].curr_space = gb[row][col*2];
+        p2.player_pieces[piece_idx-1].curr_space = gb[row][col*2];
+        p2.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
+        gb[row][col*2].SS = OCCUPIED;
       } else {
-        p2.player_pieces[piece_idx].curr_space = gb[row][1+(col*2)];
+        p2.player_pieces[piece_idx-1].curr_space = gb[row][1+(col*2)];
+        p2.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
+        gb[row][col*2].SS = OCCUPIED;
       }
-      p2.player_pieces[piece_idx].isKinged = false;
+      p2.player_pieces[piece_idx-1].isKinged = false;
       //Use temp variables to double check for correct assignment
-      char P2_curr_space_col = p2.player_pieces[piece_idx].curr_space.column_letter;
-      char P2_curr_space_row = p2.player_pieces[piece_idx].curr_space.row_number;
-      bool P2_king_state = p2.player_pieces[piece_idx].isKinged;
+      char P2_curr_space_col = p2.player_pieces[piece_idx-1].curr_space.column_letter;
+      char P2_curr_space_row = p2.player_pieces[piece_idx-1].curr_space.row_number;
+      bool P2_king_state = p2.player_pieces[piece_idx-1].isKinged;
+      LCD_DrawCheckerPiece(piece_idx, P2_curr_space_row, P2_curr_space_col, P2_king_state, p2.color);
+      // DEBUG LINES
+      printf("Player %d, Piece %d, Row %d, Column %d \r\n", p2.playerNum, piece_idx, P2_curr_space_row, P2_curr_space_col);
 
-      LCD_DrawCheckerPiece(piece_idx, P2_curr_space_col, P2_curr_space_row, P2_king_state, p2.color);
       piece_idx++;
       col++;
     }
