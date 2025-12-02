@@ -1013,6 +1013,11 @@ void LCD_DrawCheckerBoard(void)
     }
     i++;
   }
+
+  //Label the rows and columns for clarity
+  char col_letters[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+
+
 }
 
 void LCD_DrawCheckerPiece(uint8_t piece_num, uint8_t col_num, uint8_t row_num, bool isKinged, int color)
@@ -1027,6 +1032,26 @@ void LCD_DrawCheckerPiece(uint8_t piece_num, uint8_t col_num, uint8_t row_num, b
     LCD_PutStr(9 + (row_num * 30), 12 + (col_num * 30), pcnum_buff, DEFAULT_FONT, C_WHITE, color);
   } else {
     LCD_PutStr(12 + (row_num * 30), 12 + (col_num * 30), pcnum_buff, DEFAULT_FONT, C_WHITE, color);
+  }
+}
+
+void LCD_EraseCheckerPiece(uint8_t col_num, uint8_t row_num)
+{
+  if(row_num % 2 == 0)
+  {
+    if(col_num % 2 == 0)
+    {
+      UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_BLACK);
+    } else {
+      UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_WHITE);
+    }
+  } else {
+    if(col_num % 2 == 0)
+    {
+      UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_WHITE);
+    } else {
+      UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_BLACK);
+    }
   }
 }
 

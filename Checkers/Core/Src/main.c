@@ -104,7 +104,8 @@ void clear( char *buff, int len);
 void sendHTTPResponse( int connectionId, char *content, int debug);
 // Project-specific functions
 uint8_t ColumnLetterToIntTranslation(char col_let);
-void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYER p2);
+void InitializeBoard(struct PLAYER p1, struct PLAYER p2);
+void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE move_to_space);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -675,32 +676,32 @@ void sendHTTPResponse( int connectionId, char *content, int debug)
   }
 }
 
-void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYER p2)
+void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
 {
   //Draw the board on the LCD
   LCD_DrawCheckerBoard();
 
   //Initialize of each of the players' pieces' locations, states and colors.
   unsigned int row, col, orientation, piece_idx;
-  piece_idx = 1;
+  piece_idx = 0;
   orientation = 1;
   for(row = 0; row < 3;){
     for(col = 0; col < 4;)
     {
       if(orientation == 0){
-        p1.player_pieces[piece_idx-1].curr_space = gb[row][col*2];
-        p1.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
-        gb[row][col*2].SS = OCCUPIED;
+        p1.player_pieces[piece_idx].curr_space = game_board[row][col*2];
+        p1.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        game_board[row][col*2].SS = OCCUPIED;
       } else {
-        p1.player_pieces[piece_idx-1].curr_space = gb[row][1+(col*2)];
-        p1.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
-        gb[row][1+(col*2)].SS = OCCUPIED;
+        p1.player_pieces[piece_idx].curr_space = game_board[row][1+(col*2)];
+        p1.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        game_board[row][1+(col*2)].SS = OCCUPIED;
       }
-      p1.player_pieces[piece_idx-1].isKinged = false;
+      p1.player_pieces[piece_idx].isKinged = false;
       //Use temp variables to double check for correct assignment
-      char P1_curr_space_col = p1.player_pieces[piece_idx-1].curr_space.column_letter;
-      char P1_curr_space_row = p1.player_pieces[piece_idx-1].curr_space.row_number;
-      bool P1_king_state = p1.player_pieces[piece_idx-1].isKinged;
+      char P1_curr_space_col = p1.player_pieces[piece_idx].curr_space.column_letter;
+      char P1_curr_space_row = p1.player_pieces[piece_idx].curr_space.row_number;
+      bool P1_king_state = p1.player_pieces[piece_idx].isKinged;
       LCD_DrawCheckerPiece(piece_idx, P1_curr_space_row, P1_curr_space_col, P1_king_state, p1.color);
       // DEBUG LINES
       printf("Player %d, Piece %d, Row %d, Column %d \r\n", p1.playerNum, piece_idx, P1_curr_space_row, P1_curr_space_col);
@@ -716,25 +717,25 @@ void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYE
     row++;
   }
 
-  piece_idx = 1;
+  piece_idx = 0;
   orientation = 0;
   for(row = 5; row < 8;){
     for(col = 0; col < 4;)
     {
       if(orientation == 0){
-        p2.player_pieces[piece_idx-1].curr_space = gb[row][col*2];
-        p2.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
-        gb[row][col*2].SS = OCCUPIED;
+        p2.player_pieces[piece_idx].curr_space = game_board[row][col*2];
+        p2.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        game_board[row][col*2].SS = OCCUPIED;
       } else {
-        p2.player_pieces[piece_idx-1].curr_space = gb[row][1+(col*2)];
-        p2.player_pieces[piece_idx-1].curr_space.SS = OCCUPIED;
-        gb[row][col*2].SS = OCCUPIED;
+        p2.player_pieces[piece_idx].curr_space = game_board[row][1+(col*2)];
+        p2.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        game_board[row][col*2].SS = OCCUPIED;
       }
-      p2.player_pieces[piece_idx-1].isKinged = false;
+      p2.player_pieces[piece_idx].isKinged = false;
       //Use temp variables to double check for correct assignment
-      char P2_curr_space_col = p2.player_pieces[piece_idx-1].curr_space.column_letter;
-      char P2_curr_space_row = p2.player_pieces[piece_idx-1].curr_space.row_number;
-      bool P2_king_state = p2.player_pieces[piece_idx-1].isKinged;
+      char P2_curr_space_col = p2.player_pieces[piece_idx].curr_space.column_letter;
+      char P2_curr_space_row = p2.player_pieces[piece_idx].curr_space.row_number;
+      bool P2_king_state = p2.player_pieces[piece_idx].isKinged;
       LCD_DrawCheckerPiece(piece_idx, P2_curr_space_row, P2_curr_space_col, P2_king_state, p2.color);
       // DEBUG LINES
       printf("Player %d, Piece %d, Row %d, Column %d \r\n", p2.playerNum, piece_idx, P2_curr_space_row, P2_curr_space_col);
@@ -749,6 +750,46 @@ void InitializeBoard(struct BOARD_SPACE gb[8][8], struct PLAYER p1, struct PLAYE
     }
     row++;
   }
+}
+
+//Note: the move_to_space must have it's column letter translated before moving into the function.
+void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE move_to_space)
+{
+  //The acting player will move their piece indicated by the piece_num to the requested (and translated) move_to_space space.
+  //Return error if requested move_to_space is out of bounds.
+  char piece_idx = piece_num - 1;
+  if((move_to_space.row_number) || (move_to_space.column_letter)){
+    printf("Requested space is Out Of Bounds: Row %d, Column %d\r\n", move_to_space.row_number, move_to_space.column_letter);
+    return;
+  }
+  //Return error if requested move_to_space is currently occupied.
+  if(game_board[move_to_space.row_number][move_to_space.column_letter].SS == OCCUPIED)
+  {
+    printf("Cannot move to this space: Row %d, Column %d (OCCUPIED_ERROR)\r\n", move_to_space.row_number, move_to_space.column_letter);
+    return;
+  }
+  //Return error if requested piece to be moved doesn't exist.
+  if(piece_idx > 12 || piece_idx < 1){
+    printf("Invalid piece index: %d\r\n", piece_idx);
+    return;
+  }
+  //The piece's previous position is replaced by its current position.
+  acting_player.player_pieces[piece_idx].prev_space = acting_player.player_pieces[piece_idx].curr_space;
+  //Create local variables to reduce cluttering.
+  char prev_piece_row = acting_player.player_pieces[piece_idx].prev_space.row_number;
+  char prev_piece_column = acting_player.player_pieces[piece_idx].prev_space.column_letter;
+  //Update the state of the game board space occupying the moved piece.
+  game_board[prev_piece_row][prev_piece_column].SS = EMPTY;
+  //Move the piece to its new space and update that game board space's state.
+  acting_player.player_pieces[piece_idx].curr_space = move_to_space;
+  game_board[move_to_space.row_number][move_to_space.column_letter].SS = OCCUPIED;
+  //Create local variables to reduce cluttering.
+  char new_piece_row = acting_player.player_pieces[piece_idx].curr_space.row_number;
+  char new_piece_column = acting_player.player_pieces[piece_idx].curr_space.column_letter;
+  bool piece_king_state = acting_player.player_pieces[piece_idx].isKinged;
+  //Redraw the piece onto the new space.
+  LCD_EraseCheckerPiece(prev_piece_row, prev_piece_column);
+  LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, acting_player.color);
 }
 
 uint8_t ColumnLetterToIntTranslation(char col_let){
