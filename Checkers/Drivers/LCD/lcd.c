@@ -1015,12 +1015,14 @@ void LCD_DrawCheckerBoard(void)
   }
 
   //Label the rows and columns for clarity
+  char col_letter_buff[4];
   char col_letters[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
   for(int i = 0; i < 8;){
+    sprintf(col_letter_buff, "%c", col_letters[i]);
     if(i % 2){
-      LCD_PutStr((i*30), 0, col_letters[i], DEFAULT_FONT, C_BLACK, C_WHITE);
+      LCD_PutStr((i*30), 0, col_letter_buff, DEFAULT_FONT, C_WHITE, C_BLACK);
     } else {
-      LCD_PutStr((i*30), 0, col_letters[i], DEFAULT_FONT, C_WHITE, C_BLACK);
+      LCD_PutStr((i*30), 0, col_letter_buff, DEFAULT_FONT, C_BLACK, C_WHITE);
     }
     i++;
   }
@@ -1034,6 +1036,7 @@ void LCD_DrawCheckerPiece(uint8_t piece_num, uint8_t col_num, uint8_t row_num, b
     UG_DrawKingEmblem(row_num, col_num, color);
   }
   char pcnum_buff[4];
+  piece_num++;
   sprintf(pcnum_buff, "%d", piece_num);
   if(piece_num > 9){
     LCD_PutStr(9 + (row_num * 30), 12 + (col_num * 30), pcnum_buff, DEFAULT_FONT, C_WHITE, color);
