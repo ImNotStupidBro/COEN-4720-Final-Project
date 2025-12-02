@@ -1016,6 +1016,7 @@ void LCD_DrawCheckerBoard(void)
 
   //Label the rows and columns for clarity
   char col_letter_buff[4];
+  char row_number_buff[4];
   char col_letters[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
   for(int i = 0; i < 8;){
     sprintf(col_letter_buff, "%c", col_letters[i]);
@@ -1026,7 +1027,15 @@ void LCD_DrawCheckerBoard(void)
     }
     i++;
   }
-
+  for(int j = 0; j < 8;){
+    sprintf(row_number_buff, "%d", j+1);
+    if(j % 2){
+      LCD_PutStr(0, 22+(j*30), row_number_buff, DEFAULT_FONT, C_WHITE, C_BLACK);
+    } else {
+      LCD_PutStr(0, 22+(j*30), row_number_buff, DEFAULT_FONT, C_BLACK, C_WHITE);
+    }
+    j++;
+  }
 }
 
 void LCD_DrawCheckerPiece(uint8_t piece_num, uint8_t col_num, uint8_t row_num, bool isKinged, int color)
