@@ -1016,7 +1016,14 @@ void LCD_DrawCheckerBoard(void)
 
   //Label the rows and columns for clarity
   char col_letters[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
-
+  for(int i = 0; i < 8;){
+    if(i % 2){
+      LCD_PutStr((i*30), 0, col_letters[i], DEFAULT_FONT, C_BLACK, C_WHITE);
+    } else {
+      LCD_PutStr((i*30), 0, col_letters[i], DEFAULT_FONT, C_WHITE, C_BLACK);
+    }
+    i++;
+  }
 
 }
 

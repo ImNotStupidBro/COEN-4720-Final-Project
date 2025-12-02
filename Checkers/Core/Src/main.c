@@ -196,7 +196,7 @@ int main(void)
   // print on the LCD display that wifi module is ready;
   LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   UG_FillScreen(C_BLACK);
-  InitializeBoard(game_board, P1, P2);
+  InitializeBoard(P1, P2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -757,13 +757,13 @@ void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE m
 {
   //The acting player will move their piece indicated by the piece_num to the requested (and translated) move_to_space space.
   //Return error if requested move_to_space is out of bounds.
-  char piece_idx = piece_num - 1;
+  unsigned int piece_idx = piece_num - 1;
   if((move_to_space.row_number) || (move_to_space.column_letter)){
     printf("Requested space is Out Of Bounds: Row %d, Column %d\r\n", move_to_space.row_number, move_to_space.column_letter);
     return;
   }
   //Return error if requested move_to_space is currently occupied.
-  if(game_board[move_to_space.row_number][move_to_space.column_letter].SS == OCCUPIED)
+  if(game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS == OCCUPIED)
   {
     printf("Cannot move to this space: Row %d, Column %d (OCCUPIED_ERROR)\r\n", move_to_space.row_number, move_to_space.column_letter);
     return;
@@ -776,13 +776,13 @@ void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE m
   //The piece's previous position is replaced by its current position.
   acting_player.player_pieces[piece_idx].prev_space = acting_player.player_pieces[piece_idx].curr_space;
   //Create local variables to reduce cluttering.
-  char prev_piece_row = acting_player.player_pieces[piece_idx].prev_space.row_number;
-  char prev_piece_column = acting_player.player_pieces[piece_idx].prev_space.column_letter;
+  int prev_piece_row = acting_player.player_pieces[piece_idx].prev_space.row_number;
+  int prev_piece_column = acting_player.player_pieces[piece_idx].prev_space.column_letter;
   //Update the state of the game board space occupying the moved piece.
   game_board[prev_piece_row][prev_piece_column].SS = EMPTY;
   //Move the piece to its new space and update that game board space's state.
   acting_player.player_pieces[piece_idx].curr_space = move_to_space;
-  game_board[move_to_space.row_number][move_to_space.column_letter].SS = OCCUPIED;
+  game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS = OCCUPIED;
   //Create local variables to reduce cluttering.
   char new_piece_row = acting_player.player_pieces[piece_idx].curr_space.row_number;
   char new_piece_column = acting_player.player_pieces[piece_idx].curr_space.column_letter;
