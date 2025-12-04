@@ -103,9 +103,10 @@ void concatenate_strings( char *original, char *add);
 void clear( char *buff, int len);
 void sendHTTPResponse( int connectionId, char *content, int debug);
 // Project-specific functions
-uint8_t ColumnLetterToIntTranslation(char col_let);
+int8_t ColumnLetterToIntTranslation(char col_let);
 void InitializeBoard(struct PLAYER p1, struct PLAYER p2);
 void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE move_to_space);
+uint8_t PtToInt(char *effect);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -156,6 +157,11 @@ int main(void)
   char c; // used to receive characters from wifi module;
   int connectionId = 0; // used to build HTTP response only;
   int debug = 1;
+
+  //Project Pointers
+  struct PLAYER *AP; //Acting Player pointer
+  uint8_t *moving_piece_idx;
+  struct BOARD_SPACE *MTS; //Move To Space pointer
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -197,94 +203,155 @@ int main(void)
   LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   UG_FillScreen(C_BLACK);
   InitializeBoard(P1, P2);
+
+//  uint8_t column_int;
+//  uint8_t row_int;
+//  uint8_t piece_int;
+//  uint8_t column_t;
+//  uint8_t row_t;
+//  int8_t xtemp;
+//  int8_t ytemp;
+//
+//
+//  uint8_t P1_columns[] = { 1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7};
+//  uint8_t P1_rows[] =    { 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
+//  uint8_t P2_columns[] = { 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6};
+//  uint8_t P2_rows[] =    { 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7};
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE BEGIN 3 */
+
     // in each iteration, we just check on whether the wifi module is receiving anything;
-      // and if so, then, we parse what was received in the WiFi receive buffer;
-      readFromWiFi(1000, 0);
-      wifi_receive_n = strlen( rx_buff_from_WiFi_module);
-      if ( wifi_receive_n > 0) {
+    // and if so, then, we parse what was received in the WiFi receive buffer;
+    readFromWiFi(1000, 0);
+    wifi_receive_n = strlen( rx_buff_from_WiFi_module);
+    if ( wifi_receive_n > 0) {
 
-        c = rx_buff_from_WiFi_module[0];
-        if ( c != 0) {
+      c = rx_buff_from_WiFi_module[0];
+      if ( c != 0) {
 
-          connectionId = c - 48; // c is received as an ASCII code; subtract 48 (ASCII code of '0') to get the actual number;
-          if ( debug == 1) {
-            // print to host PC;
-            sprintf(tx_buff_to_HostPC, "connectionID: %4d \r\n", connectionId);
-            HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
-          }
+        connectionId = c - 48; // c is received as an ASCII code; subtract 48 (ASCII code of '0') to get the actual number;
+        if ( debug == 1) {
+          // print to host PC;
+          sprintf(tx_buff_to_HostPC, "connectionID: %4d \r\n", connectionId);
+          HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+        }
 
-          // find if the substring "+IPD" occurs in the receive buffer;
-          p_ipd = strstr( (const char *)rx_buff_from_WiFi_module, "+IPD");
-          if ( p_ipd != 0) {
-
-            // find if the substring "effect=" occurs in the receive buffer;
-            p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "effect=");
-            if ( p_effect != 0) {
-              // if "effect=" was received, let user know first on LCD;
-              LCD_PutStr(32, 80, "Received control via WiFi", DEFAULT_FONT, C_YELLOW, C_BLACK);
-              // print also on serial terminal of host PC;
-              sprintf(tx_buff_to_HostPC, "%s", "Received control via WiFi\r\n");
-              HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
-              // then, add 7 to the pointer such that we point to the number after the substring
-              // "effect=", which is what we are after as a received control number;
-              p_effect += 7;
+        p_ipd = strstr( (const char *)rx_buff_from_WiFi_module, "+IPD"); // find if the substring "+IPD" occurs in the receive buffer;
+        if ( p_ipd != 0) {
+          p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "player="); // find if the substring "Player=" occurs in the receive buffer;
+          if ( p_effect != 0) {
+            //LCD_PutStr(32, 80, "Received via WiFi", DEFAULT_FONT, C_YELLOW, C_BLACK);
+            HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY); //P=2 45 12
+            // then, add 2 to the pointer such that we point to the number after the substring, "P" is 2
+            p_effect += 7;
+            //Check if the player denomination number is valid
+            if (*p_effect == '1' || *p_effect == '2'){
               if (*p_effect == '1') {
-                // print on LCD display;
-                LCD_PutStr(32, 96, "Control received: 1  ", DEFAULT_FONT, C_YELLOW, C_BLACK);
-                // print also on serial terminal of host PC;
-                sprintf(tx_buff_to_HostPC, "%s", "Control received: 1\r\n");
-                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
-                // turn ON the LED of the board;
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-                // send back response;
-                sendHTTPResponse(connectionId, "LED on Nucleo ON", 1); // debug=1 true;
+                AP = &P1;
               } else if (*p_effect == '2') {
-                // print on LCD display;
-                LCD_PutStr(32, 96, "Control received: 2  ", DEFAULT_FONT, C_YELLOW, C_BLACK);
-                // print also on serial terminal of host PC;
-                sprintf(tx_buff_to_HostPC, "%s", "Control received: 2\r\n");
-                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
-                // turn OFF the LED of the board;
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-                // send back response;
-                sendHTTPResponse(connectionId, "LED on Nucleo OFF", 1); // debug=1 true;
-              } else if (*p_effect == '3') {
-                sprintf(tx_buff_to_HostPC, "%s", "Control received: 2\r\n");
-                HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
-                //Change the background color of the LCD to a random color in the colorArray array.
+                AP = &P2;
+              }
 
-                sendHTTPResponse(connectionId, "LCD Background color changed.", 1); // debug=1 true;
+              // Shift pointer to piece number
+              p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "piece=");
+              p_effect += 6;
+              uint8_t parsedIdx = 0;
+              //Check if the parsed index is valid
+              if(*p_effect == '0'){
+                p_effect += 1;
+                parsedIdx = (uint8_t)(*p_effect);
+              } else if (*p_effect == '1'){
+                p_effect += 1;
+                parsedIdx = (uint8_t)(*p_effect) + 10;
+              }
+              parsedIdx -= 1;
+              if (parsedIdx < 12 && parsedIdx >= 0){
+                //Assign the valid index to the moving piece index pointer
+                moving_piece_idx = &parsedIdx;
+
+                p_effect += 2;
+                int8_t moveTo_col_num = ColumnLetterToIntTranslation(*p_effect);
+                if(moveTo_col_num != -1) {
+                  moveTo_col_num -= 1;
+
+                  p_effect += 1;
+                  uint8_t moveTo_row_num = (uint8_t)(*p_effect);
+                  if(moveTo_row_num <= 8 && moveTo_row_num > 0){
+                    moveTo_row_num -= 1;
+                    //Assign the valid move-to space to the move-to-space pointer
+                    MTS = &game_board[moveTo_row_num][moveTo_col_num];
+
+                    //Move the appropriate piece
+                    MovePiece(*AP, *moving_piece_idx, *MTS);
+//              LCD_DrawCheckerPiece((piece_int+1), row_int, column_int, false, C_RED);
+//              column_t = P1_columns[piece_int];
+//              row_t = P1_rows[piece_int];
+//              UG_FillCircle(15 + ((column_t) * 30), 15 + ((row_t) * 30),  12, C_BLACK);
+//              xtemp = column_t - column_int;
+//              ytemp = row_t - row_int;
+//              //UG_FillCircle(15 + ((xtemp) * 30), 15 + ((ytemp) * 30),  7, C_GREEN);
+//
+//              if (xtemp == 2 && ytemp == 2) {
+//                UG_FillCircle(15 + ((column_t - 1) * 30), 15 + ((row_t - 1) * 30),  12, C_BLACK);
+//
+//              } else if (xtemp == -2 && ytemp == -2){
+//                UG_FillCircle(15 + ((column_t + 1) * 30), 15 + ((row_t + 1) * 30),  12, C_BLACK);
+//
+//              } else if (xtemp == 2 && ytemp == -2){
+//                UG_FillCircle(15 + ((column_t - 1) * 30), 15 + ((row_t + 1) * 30),  12, C_BLACK);
+//
+//              } else if (xtemp == -2 && ytemp == 2){
+//                UG_FillCircle(15 + ((column_t + 1) * 30), 15 + ((row_t - 1) * 30),  12, C_BLACK);
+//              }
+//
+//
+//              P1_columns[piece_int] = column_int;
+//              P1_rows[piece_int] = row_int;
+                  } else { // received nothing after "effect=" or a wrong command; error;
+                    // print also on serial terminal of host PC;
+                    sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+                    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                    // send back response;
+                    sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
+                  }
+                } else { // received nothing after "effect=" or a wrong command; error;
+                  // print also on serial terminal of host PC;
+                  sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+                  HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                  // send back response;
+                  sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
+                }
               } else { // received nothing after "effect=" or a wrong command; error;
-                // print on LCD display;
-                LCD_PutStr(32, 96, "Received invalid ctrl", DEFAULT_FONT, C_YELLOW, C_BLACK);
                 // print also on serial terminal of host PC;
                 sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
                 HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                 // send back response;
                 sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
               }
-            } else { // if ( p_effect != 0)
-              // print on LCD display;
-              LCD_PutStr(32, 96, "Received invalid ctrl", DEFAULT_FONT, C_YELLOW, C_BLACK);
+            } else { // received nothing after "effect=" or a wrong command; error;
               // print also on serial terminal of host PC;
               sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
               HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
               // send back response;
               sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
-            } // if ( p_effect != 0)
+            }
+          } else { // if ( p_effect != 0)
+            // print also on serial terminal of host PC;
+            sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+            HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+            // send back response;
+            sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
+          } // if ( p_effect != 0)
 
-          } // if ( p_ipd != 0)
-        } // if ( c != 0)
-      } // if ( wifi_receive_n > 0)
+        } // if ( p_ipd != 0)
+      } // if ( c != 0)
+    } // if ( wifi_receive_n > 0)
 
-  }
+  } // while(1)
 
   /* USER CODE END 3 */
 }
@@ -757,7 +824,7 @@ void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE m
 {
   //The acting player will move their piece indicated by the piece_num to the requested (and translated) move_to_space space.
   //Return error if requested move_to_space is out of bounds.
-  unsigned int piece_idx = piece_num - 1;
+  unsigned int piece_idx = piece_num;
   if((move_to_space.row_number) || (move_to_space.column_letter)){
     printf("Requested space is Out Of Bounds: Row %d, Column %d\r\n", move_to_space.row_number, move_to_space.column_letter);
     return;
@@ -792,7 +859,7 @@ void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE m
   LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, acting_player.color);
 }
 
-uint8_t ColumnLetterToIntTranslation(char col_let){
+int8_t ColumnLetterToIntTranslation(char col_let){
   int translated_int;
   switch(col_let)
   {
@@ -823,6 +890,45 @@ uint8_t ColumnLetterToIntTranslation(char col_let){
     default:
       translated_int = -1;
   }
+  return translated_int;
+}
+
+uint8_t PtToInt(char *effect){
+  int translated_int; // add one to the int after changing it when focusing one the pieces
+
+  switch (*effect)
+    {
+      case '1':
+        translated_int = 0;
+        break;
+      case '2':
+        translated_int = 1;
+        break;
+      case '3':
+        translated_int = 2;
+        break;
+      case '4':
+        translated_int = 3;
+        break;
+      case '5':
+        translated_int = 4;
+        break;
+      case '6':
+        translated_int = 5;
+        break;
+      case '7':
+        translated_int = 6;
+        break;
+      case '8':
+        translated_int = 7;
+        break;
+      case '9':
+        translated_int = 8;
+        break;
+
+      default:
+        translated_int = -1;
+    }
   return translated_int;
 }
 /* USER CODE END 4 */
