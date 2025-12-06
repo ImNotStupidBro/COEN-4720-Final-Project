@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <retarget.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 /* USER CODE END Includes */
@@ -105,7 +106,7 @@ void sendHTTPResponse( int connectionId, char *content, int debug);
 // Project-specific functions
 int8_t ColumnLetterToIntTranslation(char col_let);
 void InitializeBoard(struct PLAYER p1, struct PLAYER p2);
-void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE move_to_space);
+void MovePiece(struct PLAYER *acting_player, char piece_num, struct BOARD_SPACE move_to_space);
 uint8_t PtToInt(char *effect);
 /* USER CODE END PFP */
 
@@ -263,30 +264,36 @@ int main(void)
               //Check if the parsed index is valid
               if(*p_effect == '0'){
                 p_effect += 1;
-                parsedIdx = (uint8_t)(*p_effect);
+                parsedIdx = PtToInt(p_effect);
               } else if (*p_effect == '1'){
                 p_effect += 1;
-                parsedIdx = (uint8_t)(*p_effect) + 10;
+                parsedIdx = PtToInt(p_effect) + 10;
               }
-              parsedIdx -= 1;
+
               if (parsedIdx < 12 && parsedIdx >= 0){
                 //Assign the valid index to the moving piece index pointer
                 moving_piece_idx = &parsedIdx;
 
                 p_effect += 2;
+                char moveTo_col_let = *p_effect;
                 int8_t moveTo_col_num = ColumnLetterToIntTranslation(*p_effect);
                 if(moveTo_col_num != -1) {
-                  moveTo_col_num -= 1;
+                  //moveTo_col_num -= 1;
 
                   p_effect += 1;
-                  uint8_t moveTo_row_num = (uint8_t)(*p_effect);
+                  uint8_t moveTo_row_num = PtToInt(p_effect);
                   if(moveTo_row_num <= 8 && moveTo_row_num > 0){
-                    moveTo_row_num -= 1;
+                    //moveTo_row_num -= 1;
                     //Assign the valid move-to space to the move-to-space pointer
                     MTS = &game_board[moveTo_row_num][moveTo_col_num];
 
                     //Move the appropriate piece
-                    MovePiece(*AP, *moving_piece_idx, *MTS);
+                    MovePiece(AP, *moving_piece_idx, *MTS);
+                    // print also on serial terminal of host PC;
+                    sprintf(tx_buff_to_HostPC, "Move Registered: Player %d, Piece %d, Moved To %c%d \r\n", AP->playerNum, *moving_piece_idx+1, moveTo_col_let, moveTo_row_num+1);
+                    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                    // send back response;
+                    sendHTTPResponse(connectionId, "Received valid ctrl", 1); // debug=1 true;
 //              LCD_DrawCheckerPiece((piece_int+1), row_int, column_int, false, C_RED);
 //              column_t = P1_columns[piece_int];
 //              row_t = P1_rows[piece_int];
@@ -308,33 +315,32 @@ int main(void)
 //                UG_FillCircle(15 + ((column_t + 1) * 30), 15 + ((row_t - 1) * 30),  12, C_BLACK);
 //              }
 //
-//
 //              P1_columns[piece_int] = column_int;
 //              P1_rows[piece_int] = row_int;
                   } else { // received nothing after "effect=" or a wrong command; error;
                     // print also on serial terminal of host PC;
-                    sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+                    sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl: BAD ROW\r\n");
                     HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                     // send back response;
                     sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
                   }
                 } else { // received nothing after "effect=" or a wrong command; error;
                   // print also on serial terminal of host PC;
-                  sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+                  sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl: BAD COL\r\n");
                   HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                   // send back response;
                   sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
                 }
               } else { // received nothing after "effect=" or a wrong command; error;
                 // print also on serial terminal of host PC;
-                sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+                sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl: BAD PIECE INDEX\r\n");
                 HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                 // send back response;
                 sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
               }
             } else { // received nothing after "effect=" or a wrong command; error;
               // print also on serial terminal of host PC;
-              sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl\r\n");
+              sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl: BAD PLAYER NUMBER\r\n");
               HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
               // send back response;
               sendHTTPResponse(connectionId, "Received invalid ctrl", 1); // debug=1 true;
@@ -355,7 +361,6 @@ int main(void)
 
   /* USER CODE END 3 */
 }
-  /* USER CODE END WHILE */
 
 /**
   * @brief System Clock Configuration
@@ -460,7 +465,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -757,10 +762,12 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
     {
       if(orientation == 0){
         p1.player_pieces[piece_idx].curr_space = game_board[row][col*2];
+        p1.player_pieces[piece_idx].prev_space = p1.player_pieces[piece_idx].curr_space;
         p1.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
         game_board[row][col*2].SS = OCCUPIED;
       } else {
         p1.player_pieces[piece_idx].curr_space = game_board[row][1+(col*2)];
+        p1.player_pieces[piece_idx].prev_space = p1.player_pieces[piece_idx].curr_space;
         p1.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
         game_board[row][1+(col*2)].SS = OCCUPIED;
       }
@@ -783,6 +790,7 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
     }
     row++;
   }
+  P1 = p1;
 
   piece_idx = 0;
   orientation = 0;
@@ -791,10 +799,12 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
     {
       if(orientation == 0){
         p2.player_pieces[piece_idx].curr_space = game_board[row][col*2];
+        p2.player_pieces[piece_idx].prev_space = p2.player_pieces[piece_idx].curr_space;
         p2.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
         game_board[row][col*2].SS = OCCUPIED;
       } else {
         p2.player_pieces[piece_idx].curr_space = game_board[row][1+(col*2)];
+        p2.player_pieces[piece_idx].prev_space = p2.player_pieces[piece_idx].curr_space;
         p2.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
         game_board[row][col*2].SS = OCCUPIED;
       }
@@ -817,48 +827,51 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
     }
     row++;
   }
+
+  P2 = p2;
 }
 
 //Note: the move_to_space must have it's column letter translated before moving into the function.
-void MovePiece(struct PLAYER acting_player, char piece_num, struct BOARD_SPACE move_to_space)
+void MovePiece(struct PLAYER *acting_player, char piece_num, struct BOARD_SPACE move_to_space)
 {
   //The acting player will move their piece indicated by the piece_num to the requested (and translated) move_to_space space.
   //Return error if requested move_to_space is out of bounds.
   unsigned int piece_idx = piece_num;
-  if((move_to_space.row_number) || (move_to_space.column_letter)){
-    printf("Requested space is Out Of Bounds: Row %d, Column %d\r\n", move_to_space.row_number, move_to_space.column_letter);
-    return;
-  }
-  //Return error if requested move_to_space is currently occupied.
-  if(game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS == OCCUPIED)
-  {
-    printf("Cannot move to this space: Row %d, Column %d (OCCUPIED_ERROR)\r\n", move_to_space.row_number, move_to_space.column_letter);
-    return;
-  }
-  //Return error if requested piece to be moved doesn't exist.
-  if(piece_idx > 12 || piece_idx < 1){
-    printf("Invalid piece index: %d\r\n", piece_idx);
-    return;
-  }
+//  if((move_to_space.row_number) || (move_to_space.column_letter)){
+//    printf("Requested space is Out Of Bounds: Row %d, Column %d\r\n", move_to_space.row_number, move_to_space.column_letter);
+//    return;
+//  }
+//  //Return error if requested move_to_space is currently occupied.
+//  if(game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS == OCCUPIED)
+//  {
+//    printf("Cannot move to this space: Row %d, Column %d (OCCUPIED_ERROR)\r\n", move_to_space.row_number, move_to_space.column_letter);
+//    return;
+//  }
+//  //Return error if requested piece to be moved doesn't exist.
+//  if(piece_idx > 12 || piece_idx < 1){
+//    printf("Invalid piece index: %d\r\n", piece_idx);
+//    return;
+//  }
   //The piece's previous position is replaced by its current position.
-  acting_player.player_pieces[piece_idx].prev_space = acting_player.player_pieces[piece_idx].curr_space;
+  acting_player->player_pieces[piece_idx].prev_space = acting_player->player_pieces[piece_idx].curr_space;
   //Create local variables to reduce cluttering.
-  int prev_piece_row = acting_player.player_pieces[piece_idx].prev_space.row_number;
-  int prev_piece_column = acting_player.player_pieces[piece_idx].prev_space.column_letter;
+  int prev_piece_row = acting_player->player_pieces[piece_idx].prev_space.row_number;
+  int prev_piece_column = acting_player->player_pieces[piece_idx].prev_space.column_letter;
   //Update the state of the game board space occupying the moved piece.
   game_board[prev_piece_row][prev_piece_column].SS = EMPTY;
   //Move the piece to its new space and update that game board space's state.
-  acting_player.player_pieces[piece_idx].curr_space = move_to_space;
+  acting_player->player_pieces[piece_idx].curr_space = move_to_space;
   game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS = OCCUPIED;
   //Create local variables to reduce cluttering.
-  char new_piece_row = acting_player.player_pieces[piece_idx].curr_space.row_number;
-  char new_piece_column = acting_player.player_pieces[piece_idx].curr_space.column_letter;
-  bool piece_king_state = acting_player.player_pieces[piece_idx].isKinged;
+  char new_piece_row = acting_player->player_pieces[piece_idx].curr_space.row_number;
+  char new_piece_column = acting_player->player_pieces[piece_idx].curr_space.column_letter;
+  bool piece_king_state = acting_player->player_pieces[piece_idx].isKinged;
   //Redraw the piece onto the new space.
   LCD_EraseCheckerPiece(prev_piece_row, prev_piece_column);
-  LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, acting_player.color);
+  LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, acting_player->color);
 }
 
+// Helper Functions
 int8_t ColumnLetterToIntTranslation(char col_let){
   int translated_int;
   switch(col_let)
@@ -931,6 +944,8 @@ uint8_t PtToInt(char *effect){
     }
   return translated_int;
 }
+
+
 /* USER CODE END 4 */
 
 /**
