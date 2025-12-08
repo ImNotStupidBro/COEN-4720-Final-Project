@@ -56,6 +56,7 @@ struct CHECKER_PIECE{
   struct BOARD_SPACE prev_space;
   bool isKinged;
   enum pieceState PS;
+  int color;
 };
 
 struct PLAYER{
@@ -104,9 +105,14 @@ void concatenate_strings( char *original, char *add);
 void clear( char *buff, int len);
 void sendHTTPResponse( int connectionId, char *content, int debug);
 // Project-specific functions
-int8_t ColumnLetterToIntTranslation(char col_let);
 void InitializeBoard(struct PLAYER p1, struct PLAYER p2);
-void MovePiece(struct PLAYER *acting_player, char piece_num, struct BOARD_SPACE move_to_space);
+void MovePiece(struct PLAYER *acting_player, uint8_t piece_num, struct BOARD_SPACE *dest_space);
+//Helper functions
+bool ValidDirection(struct CHECKER_PIECE *piece, int dist_row);
+struct CHECKER_PIECE* PieceAt(struct BOARD_SPACE *space, struct PLAYER *p1, struct PLAYER *p2);
+bool HasCaptureFrom(struct CHECKER_PIECE *piece, struct PLAYER *acting_player, struct PLAYER *opponent);
+void Promote(struct CHECKER_PIECE *piece, int dst_row);
+int8_t ColumnLetterToIntTranslation(char col_let);
 uint8_t PtToInt(char *effect);
 /* USER CODE END PFP */
 
@@ -129,6 +135,8 @@ char *p_AT_cmd;
 struct BOARD_SPACE game_board[8][8];
 struct PLAYER P1;
 struct PLAYER P2;
+struct PLAYER *P1p = &P1;
+struct PLAYER *P2p = &P2;
 /* USER CODE END 0 */
 
 /**
@@ -243,7 +251,7 @@ int main(void)
 
         p_ipd = strstr( (const char *)rx_buff_from_WiFi_module, "+IPD"); // find if the substring "+IPD" occurs in the receive buffer;
         if ( p_ipd != 0) {
-          p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "player="); // find if the substring "Player=" occurs in the receive buffer;
+          p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "player"); // find if the substring "Player=" occurs in the receive buffer;
           if ( p_effect != 0) {
             //LCD_PutStr(32, 80, "Received via WiFi", DEFAULT_FONT, C_YELLOW, C_BLACK);
             HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY); //P=2 45 12
@@ -258,7 +266,7 @@ int main(void)
               }
 
               // Shift pointer to piece number
-              p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "piece=");
+              p_effect = strstr( (const char *)rx_buff_from_WiFi_module, "piece");
               p_effect += 6;
               uint8_t parsedIdx = 0;
               //Check if the parsed index is valid
@@ -278,7 +286,6 @@ int main(void)
                 char moveTo_col_let = *p_effect;
                 int8_t moveTo_col_num = ColumnLetterToIntTranslation(*p_effect);
                 if(moveTo_col_num != -1) {
-                  //moveTo_col_num -= 1;
 
                   p_effect += 1;
                   uint8_t moveTo_row_num = PtToInt(p_effect);
@@ -288,12 +295,20 @@ int main(void)
                     MTS = &game_board[moveTo_row_num][moveTo_col_num];
 
                     //Move the appropriate piece
-                    MovePiece(AP, *moving_piece_idx, *MTS);
+                    MovePiece(AP, *moving_piece_idx, MTS);
+                    // send back response;
+                    //sendHTTPResponse(connectionId, "Received valid ctrl", 0); // debug=1 true;
                     // print also on serial terminal of host PC;
                     sprintf(tx_buff_to_HostPC, "Move Registered: Player %d, Piece %d, Moved To %c%d \r\n", AP->playerNum, *moving_piece_idx+1, moveTo_col_let, moveTo_row_num+1);
                     HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
-                    // send back response;
-                    sendHTTPResponse(connectionId, "Received valid ctrl", 1); // debug=1 true;
+                    if(P1p->PLS == ACTING){
+                      sprintf(tx_buff_to_HostPC, "Player 1's turn.\r\n\n");
+                      HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                    } else {
+                      sprintf(tx_buff_to_HostPC, "Player 2's turn.\r\n\n");
+                      HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
+                    }
+
 //              LCD_DrawCheckerPiece((piece_int+1), row_int, column_int, false, C_RED);
 //              column_t = P1_columns[piece_int];
 //              row_t = P1_rows[piece_int];
@@ -764,11 +779,13 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
         p1.player_pieces[piece_idx].curr_space = game_board[row][col*2];
         p1.player_pieces[piece_idx].prev_space = p1.player_pieces[piece_idx].curr_space;
         p1.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        p1.player_pieces[piece_idx].color = p1.color;
         game_board[row][col*2].SS = OCCUPIED;
       } else {
         p1.player_pieces[piece_idx].curr_space = game_board[row][1+(col*2)];
         p1.player_pieces[piece_idx].prev_space = p1.player_pieces[piece_idx].curr_space;
         p1.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        p1.player_pieces[piece_idx].color = p1.color;
         game_board[row][1+(col*2)].SS = OCCUPIED;
       }
       p1.player_pieces[piece_idx].isKinged = false;
@@ -776,7 +793,8 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
       char P1_curr_space_col = p1.player_pieces[piece_idx].curr_space.column_letter;
       char P1_curr_space_row = p1.player_pieces[piece_idx].curr_space.row_number;
       bool P1_king_state = p1.player_pieces[piece_idx].isKinged;
-      LCD_DrawCheckerPiece(piece_idx, P1_curr_space_row, P1_curr_space_col, P1_king_state, p1.color);
+      int P1_piece_color = p1.player_pieces[piece_idx].color;
+      LCD_DrawCheckerPiece(piece_idx, P1_curr_space_row, P1_curr_space_col, P1_king_state, P1_piece_color);
       // DEBUG LINES
       printf("Player %d, Piece %d, Row %d, Column %d \r\n", p1.playerNum, piece_idx, P1_curr_space_row, P1_curr_space_col);
 
@@ -791,7 +809,7 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
     row++;
   }
   P1 = p1;
-
+  P1.PLS = ACTING;
   piece_idx = 0;
   orientation = 0;
   for(row = 5; row < 8;){
@@ -801,11 +819,13 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
         p2.player_pieces[piece_idx].curr_space = game_board[row][col*2];
         p2.player_pieces[piece_idx].prev_space = p2.player_pieces[piece_idx].curr_space;
         p2.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        p2.player_pieces[piece_idx].color = p2.color;
         game_board[row][col*2].SS = OCCUPIED;
       } else {
         p2.player_pieces[piece_idx].curr_space = game_board[row][1+(col*2)];
         p2.player_pieces[piece_idx].prev_space = p2.player_pieces[piece_idx].curr_space;
         p2.player_pieces[piece_idx].curr_space.SS = OCCUPIED;
+        p2.player_pieces[piece_idx].color = p2.color;
         game_board[row][col*2].SS = OCCUPIED;
       }
       p2.player_pieces[piece_idx].isKinged = false;
@@ -813,7 +833,8 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
       char P2_curr_space_col = p2.player_pieces[piece_idx].curr_space.column_letter;
       char P2_curr_space_row = p2.player_pieces[piece_idx].curr_space.row_number;
       bool P2_king_state = p2.player_pieces[piece_idx].isKinged;
-      LCD_DrawCheckerPiece(piece_idx, P2_curr_space_row, P2_curr_space_col, P2_king_state, p2.color);
+      int P2_piece_color = p2.player_pieces[piece_idx].color;
+      LCD_DrawCheckerPiece(piece_idx, P2_curr_space_row, P2_curr_space_col, P2_king_state, P2_piece_color);
       // DEBUG LINES
       printf("Player %d, Piece %d, Row %d, Column %d \r\n", p2.playerNum, piece_idx, P2_curr_space_row, P2_curr_space_col);
 
@@ -827,51 +848,204 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
     }
     row++;
   }
-
   P2 = p2;
+  P2.PLS = WAITING;
+
+  printf("\nWelcome to Checkers!\r\n");
+  printf("PLAYER 1: RED, PLAYER 2: BLUE\r\n");
+  printf("It is Player 1's turn.\r\n\n");
 }
 
-//Note: the move_to_space must have it's column letter translated before moving into the function.
-void MovePiece(struct PLAYER *acting_player, char piece_num, struct BOARD_SPACE move_to_space)
+//Note: the "dest_space" must have it's column letter translated before moving into the function.
+void MovePiece(struct PLAYER *acting_player, uint8_t piece_num, struct BOARD_SPACE *dest_space)
 {
-  //The acting player will move their piece indicated by the piece_num to the requested (and translated) move_to_space space.
-  //Return error if requested move_to_space is out of bounds.
-  unsigned int piece_idx = piece_num;
-//  if((move_to_space.row_number) || (move_to_space.column_letter)){
-//    printf("Requested space is Out Of Bounds: Row %d, Column %d\r\n", move_to_space.row_number, move_to_space.column_letter);
-//    return;
-//  }
-//  //Return error if requested move_to_space is currently occupied.
-//  if(game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS == OCCUPIED)
-//  {
-//    printf("Cannot move to this space: Row %d, Column %d (OCCUPIED_ERROR)\r\n", move_to_space.row_number, move_to_space.column_letter);
-//    return;
-//  }
-//  //Return error if requested piece to be moved doesn't exist.
-//  if(piece_idx > 12 || piece_idx < 1){
-//    printf("Invalid piece index: %d\r\n", piece_idx);
-//    return;
-//  }
-  //The piece's previous position is replaced by its current position.
-  acting_player->player_pieces[piece_idx].prev_space = acting_player->player_pieces[piece_idx].curr_space;
-  //Create local variables to reduce cluttering.
-  int prev_piece_row = acting_player->player_pieces[piece_idx].prev_space.row_number;
-  int prev_piece_column = acting_player->player_pieces[piece_idx].prev_space.column_letter;
-  //Update the state of the game board space occupying the moved piece.
-  game_board[prev_piece_row][prev_piece_column].SS = EMPTY;
-  //Move the piece to its new space and update that game board space's state.
-  acting_player->player_pieces[piece_idx].curr_space = move_to_space;
-  game_board[(int)move_to_space.row_number][(int)move_to_space.column_letter].SS = OCCUPIED;
-  //Create local variables to reduce cluttering.
-  char new_piece_row = acting_player->player_pieces[piece_idx].curr_space.row_number;
-  char new_piece_column = acting_player->player_pieces[piece_idx].curr_space.column_letter;
-  bool piece_king_state = acting_player->player_pieces[piece_idx].isKinged;
-  //Redraw the piece onto the new space.
-  LCD_EraseCheckerPiece(prev_piece_row, prev_piece_column);
-  LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, acting_player->color);
+  if(acting_player->PLS == WAITING){
+    printf("It is not this player's turn.\r\n");
+    return;
+  } else {
+    struct PLAYER *opponent;
+    if(acting_player->color == C_RED){
+      opponent = P2p;
+    } else {
+      opponent = P1p;
+    }
+    uint8_t piece_idx = piece_num;
+    struct CHECKER_PIECE *piece = &acting_player->player_pieces[piece_idx];
+    uint8_t src_row = piece->curr_space.row_number;
+    uint8_t src_col = piece->curr_space.column_letter;
+    uint8_t dest_row = dest_space->row_number;
+    uint8_t dest_col = dest_space->column_letter;
+
+    //Measure the distance of the move
+    int dist_row = dest_row - src_row;
+    int dist_col = dest_col - src_col;
+    int abs_dist_row = abs(dist_row);
+    int abs_dist_col = abs(dist_col);
+
+    //Regular move process
+    if(abs_dist_row == 1 && abs_dist_col == 1) {
+      if(game_board[dest_row][dest_col].SS == EMPTY && ValidDirection(piece, dist_row)) {
+        //Update the state of the game board spaces occupying the moved piece.
+        game_board[src_row][src_col].SS = EMPTY;
+        game_board[dest_row][dest_col].SS = OCCUPIED;
+        //Move the piece to its new space;
+        piece->prev_space = piece->curr_space;
+        piece->curr_space = game_board[dest_row][dest_col];
+        //Promote piece if it reached its promotion row
+        Promote(piece, dest_row);
+        //Create local variables to reduce cluttering.
+        int prev_piece_row = piece->prev_space.row_number;
+        int prev_piece_column = piece->prev_space.column_letter;
+        char new_piece_row = piece->curr_space.row_number;
+        char new_piece_column = piece->curr_space.column_letter;
+        bool piece_king_state = piece->isKinged;
+        //Redraw the piece onto the new space.
+        LCD_EraseCheckerPiece(prev_piece_row, prev_piece_column);
+        LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, piece->color);
+      } else {
+        printf("Cannot move to this space: Row %d, Column %d\r\n", dest_space->row_number, dest_space->column_letter);
+        printf("Space is either occupied, direction is invalid, or\r\n");
+        printf("the moving piece has been captured.\r\n");
+        return;
+      }//Empty space and valid direction check
+    } else if(abs_dist_row == 2 && abs_dist_col == 2) {
+      int mid_row = src_row + dist_row/2;
+      int mid_col = src_col + dist_col/2;
+      struct BOARD_SPACE *mid = &game_board[mid_row][mid_col];
+      if (mid->SS == OCCUPIED && PieceAt(mid, P1p, P2p)->color != acting_player->color && game_board[dest_row][dest_col].SS == EMPTY && ValidDirection(piece, dist_row)) {
+        //Capture and remove piece in mid
+        struct CHECKER_PIECE *captured = PieceAt(mid, P1p, P2p);
+        captured->PS = CAPTURED;
+        game_board[mid_row][mid_col].SS = EMPTY;
+        LCD_EraseCheckerPiece(mid_row, mid_col);
+        //Move the capturing piece to its new space
+        game_board[src_row][src_col].SS = EMPTY;
+        game_board[dest_row][dest_col].SS = OCCUPIED;
+        piece->prev_space = piece->curr_space;
+        piece->curr_space = game_board[dest_row][dest_col];
+        Promote(piece, dest_row);
+        //Create local variables to reduce cluttering.
+        int prev_piece_row = piece->prev_space.row_number;
+        int prev_piece_column = piece->prev_space.column_letter;
+        char new_piece_row = piece->curr_space.row_number;
+        char new_piece_column = piece->curr_space.column_letter;
+        bool piece_king_state = piece->isKinged;
+        //Redraw the piece onto the new space.
+        LCD_EraseCheckerPiece(prev_piece_row, prev_piece_column);
+        LCD_DrawCheckerPiece(piece_idx, new_piece_row, new_piece_column, piece_king_state, piece->color);
+        //Check if capturing piece has additional captures from new position
+        if (HasCaptureFrom(piece, acting_player, opponent)) {
+          printf("The acting player still has another capture they can perform!\r\n");
+          return;
+        }
+      } else {
+        printf("Cannot move to this space: Row %d, Column %d\r\n", dest_space->row_number, dest_space->column_letter);
+        printf("Space is either occupied, direction is invalid,\r\n");
+        printf("there is no opponent piece in the middle, or\r\n");
+        printf("the capturing piece is of the same color as the piece in the middle.");
+        return;
+      }
+      //Mid piece check
+    }//Capture check
+    if(acting_player->color == C_RED) {
+      P1.PLS = WAITING;
+      P2.PLS = ACTING;
+    } else {
+      P1.PLS = ACTING;
+      P2.PLS = WAITING;
+    }
+    return;
+  }//Acting player check
 }
 
-// Helper Functions
+/* Helper Functions */
+
+//Returns true if a piece is moving in a valid direction, and false otherwise.
+bool ValidDirection(struct CHECKER_PIECE *piece, int dist_row){
+  //Kinged pieces can move in all directions
+  if(piece->isKinged) return true;
+
+  //Captured pieces can't move
+  if(piece->PS == CAPTURED) {
+    printf("This piece has been captured.\r\n\n");
+    return false;
+  }
+
+  //P1's pieces can only move down
+  if(piece->color == C_RED){
+    return (dist_row > 0);
+  } else {
+    return (dist_row < 0);
+  }
+}
+
+//Returns the address of the piece at the identified space pointer.
+struct CHECKER_PIECE* PieceAt(struct BOARD_SPACE *space, struct PLAYER *p1, struct PLAYER *p2) {
+  if(game_board[(int)space->row_number][(int)space->column_letter].SS == EMPTY){
+    return NULL;
+  } else {
+    // Search both players' pieces for the piece at the space denoted in the space pointer
+    for (int i = 0; i < 12; i++) {
+        if (p1->player_pieces[i].PS == IN_PLAY &&
+            p1->player_pieces[i].curr_space.row_number == space->row_number &&
+            p1->player_pieces[i].curr_space.column_letter == space->column_letter) {
+            return &p1->player_pieces[i];
+        }
+        if (p2->player_pieces[i].PS == IN_PLAY &&
+            p2->player_pieces[i].curr_space.row_number == space->row_number &&
+            p2->player_pieces[i].curr_space.column_letter == space->column_letter) {
+            return &p2->player_pieces[i];
+        }
+    }
+  }
+  return NULL; // return NULL if the space contains no piece
+}
+
+bool HasCaptureFrom(struct CHECKER_PIECE *piece, struct PLAYER *acting_player, struct PLAYER *opponent) {
+  int r = piece->curr_space.row_number;
+  int c = piece->curr_space.column_letter;
+
+  // Four diagonal directions
+  int dirs[4][2] = { {2,2}, {2,-2}, {-2,2}, {-2,-2} };
+
+  for (int i = 0; i < 4; i++) {
+    int dr = dirs[i][0];
+    int dc = dirs[i][1];
+    int dst_r = r + dr;
+    int dst_c = c + dc;
+    int mid_r = r + dr/2;
+    int mid_c = c + dc/2;
+
+    // Bounds check
+    if (dst_r < 0 || dst_r > 7 || dst_c < 0 || dst_c > 7) {
+      // Destination must be empty
+      if (game_board[dst_r][dst_c].SS != EMPTY) {
+        // Middle square must contain opponent piece
+        struct BOARD_SPACE *mid = &game_board[mid_r][mid_c];
+        struct CHECKER_PIECE *captured = PieceAt(mid, acting_player, opponent);
+        if (captured && captured->PS == IN_PLAY && captured->color != acting_player->color) {
+          if (ValidDirection(piece, dr)) return true;
+        }
+      } // Destination empty
+    } // Bounds valid
+  } //for loop
+  return false;
+}
+
+//Promotes a piece to King.
+void Promote(struct CHECKER_PIECE *piece, int dst_row) {
+  // Player 1 promotes at row 7
+  if (piece->curr_space.row_number == 7 && piece->isKinged == false) {
+      piece->isKinged = true;
+      printf("Piece promoted to King!\r\n");
+  }
+  // Player 2 promotes at row 0
+  if (piece->curr_space.row_number == 0 && piece->isKinged == false) {
+      piece->isKinged = true;
+      printf("Piece promoted to King!\r\n");
+  }
+}
+
 int8_t ColumnLetterToIntTranslation(char col_let){
   int translated_int;
   switch(col_let)

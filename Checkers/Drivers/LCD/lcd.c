@@ -1067,9 +1067,9 @@ void LCD_EraseCheckerPiece(uint8_t col_num, uint8_t row_num)
   } else {
     if(col_num % 2 == 0)
     {
-      UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_WHITE);
-    } else {
       UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_BLACK);
+    } else {
+      UG_FillCircle(15 + (row_num * 30), 15 + (col_num * 30), 12, C_WHITE);
     }
   }
 }
