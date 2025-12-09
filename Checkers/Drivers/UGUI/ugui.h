@@ -462,6 +462,9 @@ void UG_DriverRegister( UG_U8 type, void* driver );
 void UG_DriverEnable( UG_U8 type );
 void UG_DriverDisable( UG_U8 type );
 
+/* Project functions */
+void UG_DrawKingEmblem( UG_S16 x, UG_S16 y, UG_COLOR c);
+
 /* Internal API functions */
 void _UG_PutText( UG_TEXT* txt );
 UG_OBJECT* _UG_SearchObject( UG_WINDOW* wnd, UG_U8 type, UG_U8 id );
