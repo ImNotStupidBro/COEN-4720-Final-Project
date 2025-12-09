@@ -112,6 +112,7 @@ bool ValidDirection(struct CHECKER_PIECE *piece, int dist_row);
 struct CHECKER_PIECE* PieceAt(struct BOARD_SPACE *space, struct PLAYER *p1, struct PLAYER *p2);
 bool HasCaptureFrom(struct CHECKER_PIECE *piece, struct PLAYER *acting_player, struct PLAYER *opponent);
 void Promote(struct CHECKER_PIECE *piece, int dst_row);
+bool CheckPlayerDefeat(struct PLAYER *player);
 int8_t ColumnLetterToIntTranslation(char col_let);
 uint8_t PtToInt(char *effect);
 /* USER CODE END PFP */
@@ -137,6 +138,10 @@ struct PLAYER P1;
 struct PLAYER P2;
 struct PLAYER *P1p = &P1;
 struct PLAYER *P2p = &P2;
+bool gameIsOver = false;
+bool P1_loses = false;
+bool P2_loses = false;
+uint8_t winning_player;
 /* USER CODE END 0 */
 
 /**
@@ -147,7 +152,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  //char debug_str_buff[30];
+  char debug_str_buff[30];
   P1.playerNum = 1;
   P2.playerNum = 2;
   P1.color = C_RED;
@@ -200,6 +205,7 @@ int main(void)
   UG_FillScreen(C_BLUE);
   LCD_PutStr(32, 32, "WiFi ESP8266 Module", DEFAULT_FONT, C_YELLOW, C_BLACK);
   LCD_PutStr(32, 48, "Initialization...", DEFAULT_FONT, C_YELLOW, C_BLACK);
+  LCD_PutStr(32, 64, "Welcome to Checkers!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   // WiFi ESP8266 module initialization;
   // NOTE: once you run this program on the Nucleo board for the first time, then,
   // you should be ok with commenting out this wifi initialization, so that you do not
@@ -213,24 +219,11 @@ int main(void)
   UG_FillScreen(C_BLACK);
   InitializeBoard(P1, P2);
 
-//  uint8_t column_int;
-//  uint8_t row_int;
-//  uint8_t piece_int;
-//  uint8_t column_t;
-//  uint8_t row_t;
-//  int8_t xtemp;
-//  int8_t ytemp;
-//
-//
-//  uint8_t P1_columns[] = { 1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7};
-//  uint8_t P1_rows[] =    { 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
-//  uint8_t P2_columns[] = { 0, 2, 4, 6, 1, 3, 5, 7, 0, 2, 4, 6};
-//  uint8_t P2_rows[] =    { 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7};
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+  while (!gameIsOver)
   {
 
     // in each iteration, we just check on whether the wifi module is receiving anything;
@@ -296,42 +289,30 @@ int main(void)
 
                     //Move the appropriate piece
                     MovePiece(AP, *moving_piece_idx, MTS);
-                    // send back response;
-                    //sendHTTPResponse(connectionId, "Received valid ctrl", 0); // debug=1 true;
+
+                    //Write down the last move performed on the LCD screen
+                    sprintf(debug_str_buff, "Pl: %d, Piece: %d, Space: %c%d", AP->playerNum, *moving_piece_idx+1, moveTo_col_let, moveTo_row_num+1);
+                    LCD_PutStr(16, 256, debug_str_buff, DEFAULT_FONT, C_WHITE, C_BLACK);
+                    if(P1p->PLS == ACTING){
+                      sprintf(debug_str_buff, "Player 1's turn");
+                    } else {
+                      sprintf(debug_str_buff, "Player 2's turn");
+                    }
+                    LCD_PutStr(16, 272, debug_str_buff, DEFAULT_FONT, C_WHITE, C_BLACK);
+
                     // print also on serial terminal of host PC;
                     sprintf(tx_buff_to_HostPC, "Move Registered: Player %d, Piece %d, Moved To %c%d \r\n", AP->playerNum, *moving_piece_idx+1, moveTo_col_let, moveTo_row_num+1);
                     HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                     if(P1p->PLS == ACTING){
                       sprintf(tx_buff_to_HostPC, "Player 1's turn.\r\n\n");
-                      HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                     } else {
                       sprintf(tx_buff_to_HostPC, "Player 2's turn.\r\n\n");
-                      HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
                     }
+                    HAL_UART_Transmit(&huart2, (uint8_t*)tx_buff_to_HostPC, strlen(tx_buff_to_HostPC), HAL_MAX_DELAY);
 
-//              LCD_DrawCheckerPiece((piece_int+1), row_int, column_int, false, C_RED);
-//              column_t = P1_columns[piece_int];
-//              row_t = P1_rows[piece_int];
-//              UG_FillCircle(15 + ((column_t) * 30), 15 + ((row_t) * 30),  12, C_BLACK);
-//              xtemp = column_t - column_int;
-//              ytemp = row_t - row_int;
-//              //UG_FillCircle(15 + ((xtemp) * 30), 15 + ((ytemp) * 30),  7, C_GREEN);
-//
-//              if (xtemp == 2 && ytemp == 2) {
-//                UG_FillCircle(15 + ((column_t - 1) * 30), 15 + ((row_t - 1) * 30),  12, C_BLACK);
-//
-//              } else if (xtemp == -2 && ytemp == -2){
-//                UG_FillCircle(15 + ((column_t + 1) * 30), 15 + ((row_t + 1) * 30),  12, C_BLACK);
-//
-//              } else if (xtemp == 2 && ytemp == -2){
-//                UG_FillCircle(15 + ((column_t - 1) * 30), 15 + ((row_t + 1) * 30),  12, C_BLACK);
-//
-//              } else if (xtemp == -2 && ytemp == 2){
-//                UG_FillCircle(15 + ((column_t + 1) * 30), 15 + ((row_t - 1) * 30),  12, C_BLACK);
-//              }
-//
-//              P1_columns[piece_int] = column_int;
-//              P1_rows[piece_int] = row_int;
+                    P1_loses = CheckPlayerDefeat(P1p);
+                    P2_loses = CheckPlayerDefeat(P2p);
+                    if(P1_loses || P2_loses) gameIsOver = true;
                   } else { // received nothing after "effect=" or a wrong command; error;
                     // print also on serial terminal of host PC;
                     sprintf(tx_buff_to_HostPC, "%s", "Received invalid ctrl: BAD ROW\r\n");
@@ -372,7 +353,20 @@ int main(void)
       } // if ( c != 0)
     } // if ( wifi_receive_n > 0)
 
-  } // while(1)
+  } // while(gameIsOver)
+  if(P1_loses) {
+    winning_player = 2;
+  } else if (P2_loses) {
+    winning_player = 1;
+  }
+  sprintf(debug_str_buff, "                          ", winning_player);
+  LCD_PutStr(16, 256, debug_str_buff, DEFAULT_FONT, C_BLACK, C_BLACK);
+  sprintf(debug_str_buff, "               ");
+  LCD_PutStr(16, 272, debug_str_buff, DEFAULT_FONT, C_BLACK, C_BLACK);
+
+  sprintf(debug_str_buff, "Game Over! Player %d Wins!", winning_player);
+  LCD_PutStr(16, 256, debug_str_buff, DEFAULT_FONT, C_WHITE, C_BLACK);
+  printf("Game Over! Player %d Wins!\r\n", winning_player);
 
   /* USER CODE END 3 */
 }
@@ -1044,6 +1038,16 @@ void Promote(struct CHECKER_PIECE *piece, int dst_row) {
       piece->isKinged = true;
       printf("Piece promoted to King!\r\n");
   }
+}
+
+bool CheckPlayerDefeat(struct PLAYER *player) {
+  // Search a players' pieces to see if they have no more pieces "in-play", and have thus lost the game.
+  for (int i = 0; i < 12; i++) {
+    if (player->player_pieces[i].PS == IN_PLAY) {
+      return false;
+    }
+  }
+  return true;
 }
 
 int8_t ColumnLetterToIntTranslation(char col_let){
