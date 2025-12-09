@@ -782,7 +782,7 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
         p1.player_pieces[piece_idx].color = p1.color;
         game_board[row][1+(col*2)].SS = OCCUPIED;
       }
-      p1.player_pieces[piece_idx].isKinged = true;
+      p1.player_pieces[piece_idx].isKinged = false;
       //Use temp variables to double check for correct assignment
       char P1_curr_space_col = p1.player_pieces[piece_idx].curr_space.column_letter;
       char P1_curr_space_row = p1.player_pieces[piece_idx].curr_space.row_number;
