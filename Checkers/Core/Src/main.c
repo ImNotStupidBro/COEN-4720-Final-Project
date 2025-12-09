@@ -215,7 +215,7 @@ int main(void)
 
   // if all went ok so far, the wifi module should be ready for communication at this time...
   // print on the LCD display that wifi module is ready;
-  LCD_PutStr(32, 64, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
+  LCD_PutStr(32, 80, "WiFi module ready!", DEFAULT_FONT, C_YELLOW, C_BLACK);
   UG_FillScreen(C_BLACK);
   InitializeBoard(P1, P2);
 
@@ -359,7 +359,7 @@ int main(void)
   } else if (P2_loses) {
     winning_player = 1;
   }
-  sprintf(debug_str_buff, "                          ", winning_player);
+  sprintf(debug_str_buff, "                          ");
   LCD_PutStr(16, 256, debug_str_buff, DEFAULT_FONT, C_BLACK, C_BLACK);
   sprintf(debug_str_buff, "               ");
   LCD_PutStr(16, 272, debug_str_buff, DEFAULT_FONT, C_BLACK, C_BLACK);
