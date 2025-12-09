@@ -2353,8 +2353,8 @@ static UG_RESULT _UG_WindowClear( UG_WINDOW* wnd )
 
 void UG_DrawKingEmblem( UG_S16 x, UG_S16 y, UG_COLOR c)
 {
-  UG_FillFrame(x-6, y, x+4, y+4, c);
-  UG_FillTriangle(x-6, y-4, x-6, y, x-3, y, c);
-  UG_FillTriangle(x-3, y, x, y-4, x+3, y, c);
-  UG_FillTriangle(x+6, y-4, x+6, y, x+3, y, c);
+  UG_FillFrame(15 + (x * 30)-7, 15 + (y * 30), 15 + (x * 30)+6, 15 + (y * 30)+4, c);
+  UG_FillTriangle(15 + (x * 30)-7, 15 + (y * 30)-5, 15 + (x * 30)-7, 15 + (y * 30), 15 + (x * 30)-4, 15 + (y * 30), c);
+  UG_FillTriangle(15 + (x * 30)-4, 15 + (y * 30), 15 + (x * 30)-1, 15 + (y * 30)-5, 15 + (x * 30)+2, 15 + (y * 30), c);
+  UG_FillTriangle(15 + (x * 30)+2, 15 + (y * 30), 15 + (x * 30)+6, 15 + (y * 30), 15 + (x * 30)+5, 15 + (y * 30)-5, c);
 }

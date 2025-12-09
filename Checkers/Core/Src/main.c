@@ -359,7 +359,7 @@ int main(void)
   } else if (P2_loses) {
     winning_player = 1;
   }
-  sprintf(debug_str_buff, "                          ", winning_player);
+  sprintf(debug_str_buff, "                          ");
   LCD_PutStr(16, 256, debug_str_buff, DEFAULT_FONT, C_BLACK, C_BLACK);
   sprintf(debug_str_buff, "               ");
   LCD_PutStr(16, 272, debug_str_buff, DEFAULT_FONT, C_BLACK, C_BLACK);
@@ -782,7 +782,7 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
         p1.player_pieces[piece_idx].color = p1.color;
         game_board[row][1+(col*2)].SS = OCCUPIED;
       }
-      p1.player_pieces[piece_idx].isKinged = false;
+      p1.player_pieces[piece_idx].isKinged = true;
       //Use temp variables to double check for correct assignment
       char P1_curr_space_col = p1.player_pieces[piece_idx].curr_space.column_letter;
       char P1_curr_space_row = p1.player_pieces[piece_idx].curr_space.row_number;
