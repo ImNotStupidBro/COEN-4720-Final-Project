@@ -846,6 +846,7 @@ void InitializeBoard(struct PLAYER p1, struct PLAYER p2)
   P2.PLS = WAITING;
 
   printf("\nWelcome to Checkers!\r\n");
+  printf("Use your Wi-Fi Serial Adapter application on a wireless device to play!\r\n");
   printf("PLAYER 1: RED, PLAYER 2: BLUE\r\n");
   printf("It is Player 1's turn.\r\n\n");
 }
