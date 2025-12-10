@@ -282,7 +282,7 @@ int main(void)
 
                   p_effect += 1;
                   uint8_t moveTo_row_num = PtToInt(p_effect);
-                  if(moveTo_row_num <= 8 && moveTo_row_num > 0){
+                  if(moveTo_row_num <= 8 && moveTo_row_num >= 0){
                     //moveTo_row_num -= 1;
                     //Assign the valid move-to space to the move-to-space pointer
                     MTS = &game_board[moveTo_row_num][moveTo_col_num];
